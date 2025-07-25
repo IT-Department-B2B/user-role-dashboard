@@ -1,104 +1,45 @@
 [
-  {
-    "username": "admin",
-    "password": "admin123",
-    "role": "admin"
-  },
-  {
-    "username": "sales1",
-    "password": "sales123",
-    "role": "sales_exec"
-  },
-  {
-    "username": "salesmgr",
-    "password": "salesmgr123",
-    "role": "sales_mgr"
-  },
-  {
-    "username": "purchase1",
-    "password": "purchase123",
-    "role": "purchase_exec"
-  },
-  {
-    "username": "purchasemgr",
-    "password": "purchasemgr123",
-    "role": "purchase_mgr"
-  },
-  {
-    "username": "Sam",
-    "password": "Sam123",
-    "role": "Sales_exec"
-  },
-  {
-    "username": "Pramod",
-    "password": "Pramod123",
-    "role": "admin"
-  },
-  {
-    "username": "VED",
-    "password": "VED123@",
-    "role": "sales_mgr"
-  },
-  {
-    "username": "Zella",
-    "password": "Zella123",
-    "role": "sales_exec"
-  },
-   {
-    "username": "AVA",
-    "password": "AVA123",
-    "role": "sales_exec"
-  },
-  {
-    "username": "DAISY",
-    "password": "DAISY123",
-    "role": "sales_exec"
-  },
-   {
-    "username": "MARCUS",
-    "password": "MARCUS123",
-    "role": "sales_exec"
-  },
-  {
-    "username": "BRIAN",
-    "password": "BRIAN123",
-    "role": "purchase_exec"
-  },
-   {
-    "username": "NEERAJ",
-    "password": "NEERAJ123",
-    "role": "purchase_exec"
-  },
-  {
-    "username": "DAVID",
-    "password": "David123",
-    "role": "sales_exec"
-  },
-   {
-    "username": "VICTOR",
-    "password": "VICTOR123",
-    "role": "sales_exec"
-  },
-  {
-    "username": "ROBIN",
-    "password": "ROBIN123",
-    "role": "sales_exec"
-  },
-   {
-    "username": "FAIZAL",
-    "password": "FAIZAL123",
-    "role": "sales_exec"
-  },
-   {
-    "username": "KEEV",
-    "password": "KEEV123",
-    "role": "sales_exec"
-  },
-   {
-    "username": "ARCHIE",
-    "password": "ARCHIE123",
-    "role": "sales_exec"
-  }
-  
-  
+  { "username": "ADMIN", "password": "ADMIN12345" },
+  { "username": "AVA", "password": "AVA29184" },
+  { "username": "LINZA", "password": "LINZA48293" },
+  { "username": "LILY", "password": "LILY06712" },
+  { "username": "SONYA", "password": "SONYA35978" },
+  { "username": "JENNIE", "password": "JENNIE70451" },
+  { "username": "GLORIA", "password": "GLORIA14329" },
+  { "username": "DAISY", "password": "DAISY98301" },
+  { "username": "ZELLA", "password": "ZELLA12043" },
+  { "username": "TIA", "password": "TIA56320" },
+  { "username": "MARCUS", "password": "MARCUS87934" },
+  { "username": "KEEV", "password": "KEEV65271" },
+  { "username": "RODY", "password": "RODY40129" },
+  { "username": "ABRAHAM", "password": "ABRAHAM97352" },
+  { "username": "DARREN", "password": "DARREN18436" },
+  { "username": "ATIN", "password": "ATIN20874" },
+  { "username": "ROBIN", "password": "ROBIN53917" },
+  { "username": "MARCEL", "password": "MARCEL31256" },
+  { "username": "SAM", "password": "SAM84752" },
+  { "username": "FREDDIE", "password": "FREDDIE62013" },
+  { "username": "ADAM", "password": "ADAM10098" },
+  { "username": "JOHN", "password": "JOHN43579" },
+  { "username": "FAIZAL", "password": "FAIZAL32890" },
+  { "username": "RICKY", "password": "RICKY79126" },
+  { "username": "ARCHIE", "password": "ARCHIE45603" },
+  { "username": "AHMAD", "password": "AHMAD73241" },
+  { "username": "MICHAEL", "password": "MICHAEL18429" },
+  { "username": "RAY", "password": "RAY65801" },
+  { "username": "VICTOR", "password": "VICTOR97253" },
+  { "username": "PETER", "password": "PETER14380" },
+  { "username": "MOHSIN", "password": "MOHSIN00147" },
+  { "username": "LUKE", "password": "LUKE29084" },
+  { "username": "OMAR", "password": "OMAR51069" },
+  { "username": "ALEX", "password": "ALEX30518" },
+  { "username": "JAMES", "password": "JAMES70841" },
+  { "username": "BRIAN", "password": "BRIAN87621" },
+  { "username": "JASON", "password": "JASON11234" },
+  { "username": "NEERAJ", "password": "NEERAJ68950" },
+  { "username": "ALLEN", "password": "ALLEN95420" },
+  { "username": "TONY", "password": "TONY44711" },
+  { "username": "RICK", "password": "RICK53369" },
+  { "username": "RICHARD", "password": "RICHARD37025" },
+  { "username": "LEO", "password": "LEO29974" }
 ]
