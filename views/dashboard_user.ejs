@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>User Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+    table, th, td { border: 1px solid #ccc; padding: 8px 12px; }
+    th { background-color: #f4f4f4; }
+    select { padding: 5px; font-size: 14px; margin-bottom: 15px; }
+    canvas { margin-top: 30px; }
+    .export-buttons { margin-top: 20px; }
+    h3 { margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <h2>Welcome, <%= username %> 👋</h2>
+
+  <form method="GET" action="/dashboard">
+    <label for="range">Filter by Created Date:</label>
+    <select name="range" id="range" onchange="this.form.submit()">
+      <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
+      <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
+      <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
+      <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
+    </select>
+  </form>
+
+  <p style="color: green;">📊 Showing records created in: <%= selectedRange %></p>
+
+  <div id="dashboardContent">
+    <h3>Your Performance</h3>
+    <table id="recordTable">
+      <thead>
+        <tr><th>Type</th><th>Count</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Leads</td><td><%= leads.length %></td></tr>
+        <tr><td>Accounts</td><td><%= accounts.length %></td></tr>
+        <tr><td>Opportunities</td><td><%= opportunities.length %></td></tr>
+        <tr><td>Deals</td><td><%= deals.length %></td></tr>
+      </tbody>
+    </table>
+
+    <% if (Object.keys(teamPerformance).length > 0) { %>
+      <h3>Team Performance</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Team Member</th>
+            <th>Leads</th>
+            <th>Accounts</th>
+            <th>Opportunities</th>
+            <th>Deals</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% Object.entries(teamPerformance).forEach(([member, data]) => { %>
+            <tr>
+              <td><%= member %></td>
+              <td><%= data.leads || 0 %></td>
+              <td><%= data.accounts || 0 %></td>
+              <td><%= data.opportunities || 0 %></td>
+              <td><%= data.deals || 0 %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+
+    <% if (Object.keys(netData).length > 0) { %>
+      <h3>Net Sales & Purchase</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Net Sales ($)</th>
+            <th>Net Purchase ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% Object.entries(netData).forEach(([user, data]) => { %>
+            <tr>
+              <td><%= user %></td>
+              <td><%= data.netSales || 0 %></td>
+              <td><%= data.netPurchase || 0 %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+
+    <% if (okr && Object.keys(okr).length > 0) { %>
+      <h3>🌟 OKR Performance Summary</h3>
+      <p style="font-style: italic; color: gray;">🔑 Detected Role: <%= roleKey.replaceAll('_', ' ').toUpperCase() %></p>
+      <table>
+        <thead>
+          <tr>
+            <th>Objective</th>
+            <th>Target</th>
+            <th>Weightage</th>
+            <th>Achievement</th>
+            <th>% Achieved</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% 
+            let weightedScore = 0;
+            let totalWeight = 0;
+            Object.entries(okr).forEach(([objective, meta]) => {
+              const achieved = achievements[objective] || 0;
+              const weight = meta.WEIGHTAGE;
+              const percentAchieved = meta.TARGET ? ((achieved / meta.TARGET) * 100) : 0;
+              const contribution = (weight * percentAchieved) / 100;
+              weightedScore += contribution;
+              totalWeight += weight;
+          %>
+            <tr>
+              <td><%= objective %></td>
+              <td><%= meta.TARGET %></td>
+              <td><%= weight %>%</td>
+              <td><%= achieved %></td>
+              <td><%= percentAchieved.toFixed(1) %> %</td>
+            </tr>
+          <% }); %>
+          <tr style="background-color: #e0ffe0; font-weight: bold;">
+            <td colspan="4" style="text-align: right;">Overall Achievement (%)</td>
+            <td><%= weightedScore.toFixed(1) %> %</td>
+          </tr>
+        </tbody>
+      </table>
+    <% } %>
+
+    <canvas id="userChart" width="1000" height="400"></canvas>
+  </div>
+
+  <div class="export-buttons">
+    <button onclick="exportToExcel()">📅 Export Table to Excel</button>
+    <button onclick="exportToPDF()">📄 Export Full Dashboard to PDF</button>
+  </div>
+
+  <script>
+    const chartData = JSON.parse('<%- JSON.stringify([leads.length, accounts.length, opportunities.length, deals.length]) %>');
+    const ctx = document.getElementById('userChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Leads', 'Accounts', 'Opportunities', 'Deals'],
+        datasets: [{
+          label: 'Your Record Count',
+          data: chartData,
+          backgroundColor: ['#4bc0c0','#ffce56','#9966ff','#ff6384'],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 1500, easing: 'easeOutBounce' },
+        scales: { y: { beginAtZero: true } },
+        plugins: { title: { display: true, text: 'Your Record Summary' } }
+      }
+    });
+
+    function exportToExcel() {
+      const table = document.getElementById('recordTable');
+      const workbook = XLSX.utils.table_to_book(table, { sheet: 'UserData' });
+      XLSX.writeFile(workbook, 'User_Summary.xlsx');
+    }
+
+    async function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const content = document.getElementById('dashboardContent');
+      const canvas = await html2canvas(content, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = 580;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      doc.addImage(imgData, 'PNG', 10, 20, imgWidth, imgHeight);
+      doc.save('User_Summary.pdf');
+    }
+  </script>
+</body>
+</html>

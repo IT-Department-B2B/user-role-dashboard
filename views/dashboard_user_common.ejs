@@ -1,0 +1,55 @@
+<script>
+  const summaryData = JSON.parse('<%- JSON.stringify(summary || {}) %>');
+
+  const users = Object.keys(summaryData);
+  const leadCounts = users.map(u => summaryData[u].leads || 0);
+  const accountCounts = users.map(u => summaryData[u].accounts || 0);
+  const opportunityCounts = users.map(u => summaryData[u].opps || 0);
+
+  const ctx = document.getElementById('summaryChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: users,
+      datasets: [
+        {
+          label: 'Leads',
+          data: leadCounts,
+          backgroundColor: 'rgba(75, 192, 192, 0.7)'
+        },
+        {
+          label: 'Accounts',
+          data: accountCounts,
+          backgroundColor: 'rgba(255, 206, 86, 0.7)'
+        },
+        {
+          label: 'Opportunities',
+          data: opportunityCounts,
+          backgroundColor: 'rgba(153, 102, 255, 0.7)'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      animation: {
+        duration: 1500,
+        easing: 'easeOutBounce'
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: 'Summary Chart'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Count' }
+        },
+        x: {
+          title: { display: true, text: 'User' }
+        }
+      }
+    }
+  });
+</script>

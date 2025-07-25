@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Summary Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+    table, th, td { border: 1px solid #ccc; padding: 8px 12px; }
+    th { background-color: #f4f4f4; }
+    select { padding: 5px; font-size: 14px; margin-bottom: 15px; }
+    canvas { margin-top: 30px; }
+    .export-buttons { margin-top: 20px; }
+    h3 { margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <h2>Admin Summary Dashboard</h2>
+
+  <!-- Overall Achievement -->
+  <h3 style="color:blue;">
+    ⭐ Overall Achievement of All Users: <%= overallAchievement %> %
+  </h3>
+
+  <!-- User-wise Achievement -->
+  <h3>User-wise Achievement</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Achievement (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% Object.keys(userAchievements).forEach(user => { %>
+        <tr>
+          <td><%= user %></td>
+          <td><%= userAchievements[user] %> %</td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <!-- Filter -->
+  <form method="GET" action="/dashboard">
+    <label for="range">Filter by Created Date:</label>
+    <select name="range" id="range" onchange="this.form.submit()">
+      <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
+      <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
+      <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
+      <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
+    </select>
+  </form>
+
+  <p style="color: green;">Showing summary for: <%= selectedRange %></p>
+
+  <div id="dashboardContent">
+    <!-- Record Summary -->
+    <h3>Record Summary</h3>
+    <table id="summaryTable">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Leads</th>
+          <th>Accounts</th>
+          <th>Opportunities</th>
+          <th>Deals</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% Object.keys(summary).forEach(user => { %>
+          <tr>
+            <td><%= user %></td>
+            <td><%= summary[user].leads || 0 %></td>
+            <td><%= summary[user].accounts || 0 %></td>
+            <td><%= summary[user].opportunities || 0 %></td>
+            <td><%= summary[user].deals || 0 %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <!-- Net Sales & Purchase -->
+    <% if (Object.keys(netData).length > 0) { %>
+      <h3>Net Sales & Purchase</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Net Sales ($)</th>
+            <th>Net Purchase ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% Object.entries(netData).forEach(([user, data]) => { %>
+            <tr>
+              <td><%= user %></td>
+              <td><%= data.netSales || 0 %></td>
+              <td><%= data.netPurchase || 0 %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+
+    <!-- Charts -->
+    <h3>Leads by User</h3>
+    <canvas id="leadsChart"></canvas>
+
+    <h3>Accounts by User</h3>
+    <canvas id="accountsChart"></canvas>
+
+    <h3>Opportunities by User</h3>
+    <canvas id="oppsChart"></canvas>
+
+    <h3>Deals by User</h3>
+    <canvas id="dealsChart"></canvas>
+  </div>
+
+  <!-- Export Buttons -->
+  <div class="export-buttons">
+    <button onclick="exportToExcel()">Export Table to Excel</button>
+    <button onclick="exportToPDF()">Export Dashboard to PDF</button>
+  </div>
+
+  <script>
+    const summaryData = JSON.parse('<%- JSON.stringify(summary || {}) %>');
+    const users = Object.keys(summaryData);
+    const leadCounts = users.map(u => summaryData[u].leads || 0);
+    const accountCounts = users.map(u => summaryData[u].accounts || 0);
+    const opportunityCounts = users.map(u => summaryData[u].opportunities || 0);
+    const dealCounts = users.map(u => summaryData[u].deals || 0);
+
+    function createChart(canvasId, label, data, color) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: users,
+          datasets: [{ label, data, backgroundColor: color }]
+        },
+        options: {
+          responsive: true,
+          animation: { duration: 1000, easing: 'easeOutBounce' },
+          plugins: { title: { display: true, text: label + ' by User' } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Count' } },
+            x: { title: { display: true, text: 'User' } }
+          }
+        }
+      });
+    }
+
+    createChart('leadsChart', 'Leads', leadCounts, 'rgba(75, 192, 192, 0.7)');
+    createChart('accountsChart', 'Accounts', accountCounts, 'rgba(255, 206, 86, 0.7)');
+    createChart('oppsChart', 'Opportunities', opportunityCounts, 'rgba(153, 102, 255, 0.7)');
+    createChart('dealsChart', 'Deals', dealCounts, 'rgba(255, 99, 132, 0.7)');
+
+    function exportToExcel() {
+      const table = document.getElementById('summaryTable');
+      const workbook = XLSX.utils.table_to_book(table, { sheet: 'Summary' });
+      XLSX.writeFile(workbook, 'Admin_Summary.xlsx');
+    }
+
+    async function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const content = document.getElementById('dashboardContent');
+      const canvas = await html2canvas(content, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = 580;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      doc.addImage(imgData, 'PNG', 10, 20, imgWidth, imgHeight);
+      doc.save('Admin_Summary.pdf');
+    }
+  </script>
+</body>
+</html>

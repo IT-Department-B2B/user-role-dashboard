@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Salesforce Dashboard</title>
+</head>
+<body>
+  <h2>Welcome, <%= username %></h2>
+
+  <form method="GET" action="/dashboard">
+    <label for="range">Filter by Created Date:</label>
+    <select name="range" id="range" onchange="this.form.submit()">
+      <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
+      <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
+      <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
+      <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
+    </select>
+  </form>
+
+  <p style="color: green;">📅 Showing records created: <%= selectedRange %></p>
+
+  <h3>Leads</h3>
+  <ul>
+    <% for (let i = 0; i < leads.length; i++) { %>
+      <li><%= i + 1 %>. <%= leads[i].FirstName %> <%= leads[i].LastName %> - <%= leads[i].Company %> - <%= leads[i].Status %> - <%= leads[i].CreatedDate %></li>
+    <% } %>
+  </ul>
+
+  <h3>Accounts</h3>
+  <ul>
+    <% for (let i = 0; i < accounts.length; i++) { %>
+      <li><%= i + 1 %>. <%= accounts[i].Name %> - <%= accounts[i].Industry %> - <%= accounts[i].Phone %> - <%= accounts[i].CreatedDate %></li>
+    <% } %>
+  </ul>
+
+  <h3>Opportunities</h3>
+  <ul>
+    <% for (let i = 0; i < opportunities.length; i++) { %>
+      <li><%= i + 1 %>. <%= opportunities[i].Name %> - <%= opportunities[i].StageName %> - <%= opportunities[i].Amount %> - <%= opportunities[i].CreatedDate %></li>
+    <% } %>
+  </ul>
+
+  <h3>Contacts</h3>
+  <ul>
+    <% for (let i = 0; i < contacts.length; i++) { %>
+      <li><%= i + 1 %>. <%= contacts[i].FirstName %> <%= contacts[i].LastName %> - <%= contacts[i].Email %> - <%= contacts[i].Phone %></li>
+    <% } %>
+  </ul>
+</body>
+</html>
+

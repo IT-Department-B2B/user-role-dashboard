@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign Up</title>
+</head>
+<body>
+  <h1>Create an Account</h1>
+  <form method="POST" action="/register">
+    <label>Username:</label>
+    <input type="text" name="username" required><br/>
+
+    <label>Password:</label>
+    <input type="password" name="password" required><br/>
+
+    <label>Role:</label>
+    <select name="role" required>
+      <option value="sales_exec">Sales Executive</option>
+      <option value="sales_mgr">Sales Manager</option>
+      <option value="purchase_exec">Purchase Executive</option>
+      <option value="purchase_mgr">Purchase Manager</option>
+    </select><br/>
+
+    <button type="submit">Sign Up</button>
+  </form>
+
+  <p>Already have an account? <a href="/">Login</a></p>
+</body>
+</html>

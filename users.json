@@ -1,0 +1,104 @@
+[
+  {
+    "username": "admin",
+    "password": "admin123",
+    "role": "admin"
+  },
+  {
+    "username": "sales1",
+    "password": "sales123",
+    "role": "sales_exec"
+  },
+  {
+    "username": "salesmgr",
+    "password": "salesmgr123",
+    "role": "sales_mgr"
+  },
+  {
+    "username": "purchase1",
+    "password": "purchase123",
+    "role": "purchase_exec"
+  },
+  {
+    "username": "purchasemgr",
+    "password": "purchasemgr123",
+    "role": "purchase_mgr"
+  },
+  {
+    "username": "Sam",
+    "password": "Sam123",
+    "role": "Sales_exec"
+  },
+  {
+    "username": "Pramod",
+    "password": "Pramod123",
+    "role": "admin"
+  },
+  {
+    "username": "VED",
+    "password": "VED123@",
+    "role": "sales_mgr"
+  },
+  {
+    "username": "Zella",
+    "password": "Zella123",
+    "role": "sales_exec"
+  },
+   {
+    "username": "AVA",
+    "password": "AVA123",
+    "role": "sales_exec"
+  },
+  {
+    "username": "DAISY",
+    "password": "DAISY123",
+    "role": "sales_exec"
+  },
+   {
+    "username": "MARCUS",
+    "password": "MARCUS123",
+    "role": "sales_exec"
+  },
+  {
+    "username": "BRIAN",
+    "password": "BRIAN123",
+    "role": "purchase_exec"
+  },
+   {
+    "username": "NEERAJ",
+    "password": "NEERAJ123",
+    "role": "purchase_exec"
+  },
+  {
+    "username": "DAVID",
+    "password": "David123",
+    "role": "sales_exec"
+  },
+   {
+    "username": "VICTOR",
+    "password": "VICTOR123",
+    "role": "sales_exec"
+  },
+  {
+    "username": "ROBIN",
+    "password": "ROBIN123",
+    "role": "sales_exec"
+  },
+   {
+    "username": "FAIZAL",
+    "password": "FAIZAL123",
+    "role": "sales_exec"
+  },
+   {
+    "username": "KEEV",
+    "password": "KEEV123",
+    "role": "sales_exec"
+  },
+   {
+    "username": "ARCHIE",
+    "password": "ARCHIE123",
+    "role": "sales_exec"
+  }
+  
+  
+]
