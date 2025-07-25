@@ -15,23 +15,87 @@
     canvas { margin-top: 30px; }
     .export-buttons { margin-top: 20px; }
     h3 { margin-top: 40px; }
+    .header-container { display: flex; justify-content: space-between; align-items: flex-start; }
+    .growth-plan { width: 45%; background-color: #ffe9e1; padding: 10px; border: 1px solid #ccc; }
+    .growth-plan table { width: 100%; margin: 0; }
+    .growth-plan h3 { margin-top: 0; text-align: center; background: #f4d6cb; padding: 5px; }
+    .logo-container { text-align: center; margin-bottom: 20px; }
+    .logo-container img { max-width: 300px; height: auto; }
   </style>
 </head>
 <body>
-  <h2>Welcome, <%= username %> 👋</h2>
 
-  <form method="GET" action="/dashboard">
-    <label for="range">Filter by Created Date:</label>
-    <select name="range" id="range" onchange="this.form.submit()">
-      <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
-      <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
-      <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
-      <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
-    </select>
-  </form>
+  <!-- Logo at top center with clickable link -->
+  <div class="logo-container">
+    <a href="https://imgbb.com/" target="_blank">
+      <img src="https://i.ibb.co/HTjXVFtf/recto-logo-1.jpg" alt="Retrotech Logo" border="0">
+    </a>
+  </div>
 
-  <p style="color: green;">📊 Showing records created in: <%= selectedRange %></p>
+  <div class="header-container">
+    <div>
+      <h2>Welcome, <%= username %> 👋</h2>
+      <form method="GET" action="/dashboard">
+        <label for="range">Filter by Created Date:</label>
+        <select name="range" id="range" onchange="this.form.submit()">
+          <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
+          <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
+          <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
+          <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
+        </select>
+      </form>
+      <p style="color: green;">📊 Showing records created in: <%= selectedRange %></p>
+    </div>
 
+    <!-- Growth Plan Table at Top-Right -->
+    <div class="growth-plan">
+      <h3>GROWTH PLAN 2025</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Base Salary</th>
+            <th>12 months Goal</th>
+            <th>Annual Base Salary Upgrade</th>
+            <th>Revised Designation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Rs.28,000</td>
+            <td>$24,00,000 & Above</td>
+            <td>Rs. 1,00,000</td>
+            <td>Team Operations Manager</td>
+          </tr>
+          <tr>
+            <td>Rs.28,000</td>
+            <td>$18,00,000 & Above</td>
+            <td>Rs. 75,000</td>
+            <td>Line Manager</td>
+          </tr>
+          <tr>
+            <td>Rs.28,000</td>
+            <td>$12,00,000 & Above</td>
+            <td>Rs. 55,000</td>
+            <td>Team Leader</td>
+          </tr>
+          <tr>
+            <td>Rs.28,000</td>
+            <td>$10,00,000 & Above</td>
+            <td>Rs. 45,000</td>
+            <td>Sr. Executive</td>
+          </tr>
+          <tr>
+            <td>Rs.28,000</td>
+            <td>$600,000 & Above</td>
+            <td>Rs. 35,000</td>
+            <td>Executive</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Dashboard Content -->
   <div id="dashboardContent">
     <h3>Your Performance</h3>
     <table id="recordTable">
