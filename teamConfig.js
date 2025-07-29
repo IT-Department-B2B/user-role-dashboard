@@ -7,7 +7,8 @@ const teamMapping = {
   'AVA': ['Gloria', 'Jennie', 'Sonya', 'Lily', 'Linza'],
   'BRIAN': ['Jason', 'Neeraj', 'Allen'],
   'TONY': ['Rick C', 'Leo M', 'Richard M'],
-  'LUKE': ['Omar', 'Alex', 'James L']
+  'LUKE': ['Omar', 'Alex', 'James L'],
+   'DAVID': ['DAVID']
 };
 
 // Add MARK with access to all users across all teams

@@ -9,12 +9,6 @@ function isAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
-/**
- * Updated detectRole:
- * - Mark → operations_head
- * - David → floor_manager
- * - Else use default detection
- */
 function detectRole(username, ownDeals, ownOpps, teamMembers) {
   if (username.toUpperCase() === 'MARK') return 'operations_head';
   if (username.toUpperCase() === 'DAVID') return 'floor_manager';
@@ -37,19 +31,22 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const username = req.session.username;
     const selectedRange = req.query.range || 'LAST_N_DAYS:30';
     const isAdmin = username.toUpperCase() === 'ADMIN';
+    const isMark = username.toUpperCase() === 'MARK';
 
-    // Fetch current user's records
+    // Fetch own records
     const [ownLeads, ownAccounts, ownOpps, ownDeals] = await Promise.all([
       conn.query(`SELECT Id FROM Lead WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${username}'`),
       conn.query(`SELECT Id FROM Account WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${username}'`),
-      conn.query(`SELECT Id, Amount, StageName FROM Opportunity WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${username}'`),
-      conn.query(`SELECT Id, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${username}'`)
+      conn.query(`SELECT Id, Amount, StageName FROM Opportunity WHERE CloseDate = ${selectedRange} AND Custom_Owner__c = '${username}'`),
+      conn.query(`SELECT Id, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE Closed_By__c = ${selectedRange} AND Custom_Owner__c = '${username}'`)
     ]);
 
-    // Net Sales & Net Purchase (Closed Won)
-    const netSales = ownOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
+    // Net Sales & Net Purchase
+    const netSales = ownOpps.records
+      .filter(o => o.StageName === 'Closed Won' && o.Amount)
       .reduce((sum, o) => sum + o.Amount, 0);
-    const netPurchase = ownDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
+    const netPurchase = ownDeals.records
+      .filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
       .reduce((sum, d) => sum + d.Closed_Price__c, 0);
 
     const netData = {};
@@ -58,18 +55,20 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const teamPerformance = {};
     const teamMembers = teamConfig[username] || [];
 
-    // If admin fetch all records
-    if (isAdmin) {
+    // Admin and Mark logic
+    if (isAdmin || isMark) {
       const allRecords = await fetchAllRecords(conn, selectedRange);
+      Object.keys(netData).forEach(key => delete netData[key]);
+      Object.keys(teamPerformance).forEach(key => delete teamPerformance[key]);
       processPerformanceData(allRecords, teamPerformance, netData);
     } else {
-      // Team Members' Performance
+      // Team members' data
       for (let member of teamMembers) {
         const [memberLeads, memberAccounts, memberOpps, memberDeals] = await Promise.all([
           conn.query(`SELECT Id FROM Lead WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${member}'`),
           conn.query(`SELECT Id FROM Account WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${member}'`),
-          conn.query(`SELECT Id, Amount, StageName FROM Opportunity WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${member}'`),
-          conn.query(`SELECT Id, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE CreatedDate = ${selectedRange} AND Custom_Owner__c = '${member}'`)
+          conn.query(`SELECT Id, Amount, StageName FROM Opportunity WHERE CloseDate = ${selectedRange} AND Custom_Owner__c = '${member}'`),
+          conn.query(`SELECT Id, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE Closed_By__c = ${selectedRange} AND Custom_Owner__c = '${member}'`)
         ]);
 
         teamPerformance[member] = {
@@ -80,36 +79,57 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
         };
 
         netData[member] = {
-          netSales: memberOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
+          netSales: memberOpps.records
+            .filter(o => o.StageName === 'Closed Won' && o.Amount)
             .reduce((sum, o) => sum + o.Amount, 0),
-          netPurchase: memberDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
+          netPurchase: memberDeals.records
+            .filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
             .reduce((sum, d) => sum + d.Closed_Price__c, 0)
         };
       }
     }
 
-    // Determine role
+    // Detect role
     const roleKey = detectRole(username, ownDeals.records, ownOpps.records, teamMembers);
-    const okr = JSON.parse(JSON.stringify(okrTargets[roleKey])); // clone safely
-
+    const okr = JSON.parse(JSON.stringify(okrTargets[roleKey] || {}));
     const achievements = {};
     const isTeamLeader = roleKey.includes('line_manager') || roleKey === 'operations_head';
 
-    // Special logic for Mark (operations_head): Self + Team combined
-    if (roleKey === 'operations_head') {
-      achievements["Monthly Sales (Self + Team Members)"] =
-        (netData[username]?.netSales || 0) +
-        Object.entries(netData)
-          .filter(([user]) => user !== username)
-          .reduce((sum, [, d]) => sum + (d.netSales || 0), 0);
+    // Dynamic target for Line Managers
+    if (isTeamLeader && (roleKey === 'sales_line_manager' || roleKey === 'purchase_line_manager')) {
+      const teamCount = teamMembers.length; // excluding team leader
+      if (okr["Monthly Sales (Team Members)"]) {
+        okr["Monthly Sales (Team Members)"].TARGET = teamCount * 100000;
+      }
+      if (okr["Monthly Purchase (Team Members)"]) {
+        okr["Monthly Purchase (Team Members)"].TARGET = teamCount * 100000;
+      }
+    }
 
+    // David (floor_manager) self-only target = 300000
+    if (roleKey === 'floor_manager') {
+      if (okr["Monthly Sales (Self)"]) {
+        okr["Monthly Sales (Self)"].TARGET = 300000;
+      }
+    }
+
+    // Operations head (Mark)
+    if (roleKey === 'operations_head') {
+      const totalNetSales = Object.values(netData).reduce((sum, d) => sum + (d.netSales || 0), 0);
+      achievements["Monthly Sales (Self + Team Members)"] = totalNetSales;
+    }
+
+    // Floor Manager (David)
+    if (roleKey === 'floor_manager') {
+      // Only self achievements
+      achievements["Monthly Sales (Self)"] = netData[username]?.netSales || 0;
       achievements["Monthly Opportunities Created"] = ownOpps.records.length;
       achievements["Monthly Leads Generated"] = ownLeads.records.length;
       achievements["Monthly Unique Accounts"] = ownAccounts.records.length;
     }
 
-    // Logic for sales roles (except Mark)
-    if ((roleKey.startsWith('sales') || roleKey === 'floor_manager') && roleKey !== 'operations_head') {
+    // Sales roles (excluding David and Mark)
+    if (roleKey.startsWith('sales') && roleKey !== 'operations_head' && roleKey !== 'floor_manager') {
       achievements["Monthly Sales (Self)"] = netData[username]?.netSales || 0;
 
       if (isTeamLeader && okr["Monthly Sales (Team Members)"]) {
@@ -123,8 +143,8 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       achievements["Monthly Unique Accounts"] = ownAccounts.records.length;
     }
 
-    // Logic for purchase roles
-    if (roleKey.startsWith('purchase')) {
+    // Purchase roles
+    if (roleKey.startsWith('purchase') && roleKey !== 'operations_head') {
       achievements["Monthly Purchase (Self)"] = netData[username]?.netPurchase || 0;
 
       if (isTeamLeader && okr["Monthly Purchase (Team Members)"]) {
@@ -138,6 +158,7 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       achievements["Monthly Unique Accounts"] = ownAccounts.records.length;
     }
 
+    // Render
     res.render('dashboard_user', {
       username,
       selectedRange,
@@ -154,57 +175,49 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('❌ Dashboard Error:', err.message);
+    console.error('❌ Dashboard Error:', err);
     res.status(500).send('Dashboard Error: ' + err.message);
   }
 });
 
-// Fetch all records for Admin
 async function fetchAllRecords(conn, range) {
   const [leads, accounts, opps, deals, sales, purchases] = await Promise.all([
     conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Lead WHERE CreatedDate = ${range} GROUP BY Custom_Owner__c`),
     conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Account WHERE CreatedDate = ${range} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Opportunity WHERE CreatedDate = ${range} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Deal__c WHERE CreatedDate = ${range} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, SUM(Amount) totalNetSales FROM Opportunity WHERE CreatedDate = ${range} AND StageName = 'Closed Won' GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, SUM(Closed_Price__c) totalNetPurchase FROM Deal__c WHERE CreatedDate = ${range} AND Deal_Status__c = 'Closed Won' GROUP BY Custom_Owner__c`)
+    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Opportunity WHERE CloseDate = ${range} GROUP BY Custom_Owner__c`),
+    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Deal__c WHERE Closed_By__c = ${range} GROUP BY Custom_Owner__c`),
+    conn.query(`SELECT Custom_Owner__c, SUM(Amount) totalNetSales FROM Opportunity WHERE CloseDate = ${range} AND StageName = 'Closed Won' GROUP BY Custom_Owner__c`),
+    conn.query(`SELECT Custom_Owner__c, SUM(Closed_Price__c) totalNetPurchase FROM Deal__c WHERE Closed_By__c = ${range} AND Deal_Status__c = 'Closed Won' GROUP BY Custom_Owner__c`)
   ]);
   return { leads, accounts, opps, deals, sales, purchases };
 }
 
-// Process performance data for Admin
 function processPerformanceData(data, perfObj, netObj) {
   const { leads, accounts, opps, deals, sales, purchases } = data;
 
   for (let row of leads.records) {
-    const user = row.Custom_Owner__c;
-    if (!perfObj[user]) perfObj[user] = {};
-    perfObj[user].leads = row.total;
+    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
+    perfObj[row.Custom_Owner__c].leads = row.total;
   }
   for (let row of accounts.records) {
-    const user = row.Custom_Owner__c;
-    if (!perfObj[user]) perfObj[user] = {};
-    perfObj[user].accounts = row.total;
+    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
+    perfObj[row.Custom_Owner__c].accounts = row.total;
   }
   for (let row of opps.records) {
-    const user = row.Custom_Owner__c;
-    if (!perfObj[user]) perfObj[user] = {};
-    perfObj[user].opportunities = row.total;
+    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
+    perfObj[row.Custom_Owner__c].opportunities = row.total;
   }
   for (let row of deals.records) {
-    const user = row.Custom_Owner__c;
-    if (!perfObj[user]) perfObj[user] = {};
-    perfObj[user].deals = row.total;
+    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
+    perfObj[row.Custom_Owner__c].deals = row.total;
   }
   for (let row of sales.records) {
-    const user = row.Custom_Owner__c;
-    if (!netObj[user]) netObj[user] = {};
-    netObj[user].netSales = row.totalNetSales || 0;
+    if (!netObj[row.Custom_Owner__c]) netObj[row.Custom_Owner__c] = {};
+    netObj[row.Custom_Owner__c].netSales = row.totalNetSales || 0;
   }
   for (let row of purchases.records) {
-    const user = row.Custom_Owner__c;
-    if (!netObj[user]) netObj[user] = {};
-    netObj[user].netPurchase = row.totalNetPurchase || 0;
+    if (!netObj[row.Custom_Owner__c]) netObj[row.Custom_Owner__c] = {};
+    netObj[row.Custom_Owner__c].netPurchase = row.totalNetPurchase || 0;
   }
 }
 
