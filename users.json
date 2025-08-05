@@ -19,8 +19,7 @@
   { "username": "AHMAD", "password": "AHMAD82109", "role": "user", "doj": "2024-10-07" },
   { "username": "JOHN", "password": "JOHN58102", "role": "user", "doj": "2024-09-03" },
   { "username": "TONY", "password": "TONY48592", "role": "user", "doj": "2024-11-11" },
-
-  { "username": "DAISY", "password": "DAISY10928", "role": "user", "doj": "2024-11-18" },
+  { "username": "DAISY ", "password": "DAISY10928", "role": "user", "doj": "2024-11-18" },
   { "username": "DARREN", "password": "DARREN91820", "role": "user", "doj": "2024-11-18" },
   { "username": "RICK", "password": "RICK48192", "role": "user", "doj": "2024-11-18" },
   { "username": "MARCEL", "password": "MARCEL19283", "role": "user", "doj": "2024-11-18" },
