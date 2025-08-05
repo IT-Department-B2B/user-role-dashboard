@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+   <!DOCTYPE html> 
 <html>
 <head>
   <title>User Dashboard</title>
@@ -147,14 +147,18 @@
       <% } %>
     </h2>
     <form method="GET" action="/dashboard" class="filter-box">
-      <select name="range" onchange="this.form.submit()">
-        <option value="ALL_TIME" <%= selectedRange === 'ALL_TIME' ? 'selected' : '' %>>All Time</option>
-        <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
-        <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
-        <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
-        <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
-      </select>
-    </form>
+  <select name="range" onchange="this.form.submit()">
+    <option value="ALL_TIME" <%= selectedRange === 'ALL_TIME' ? 'selected' : '' %>>All Time</option>
+    <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
+    <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
+    <option value="LAST_N_DAYS:90" <%= selectedRange === 'LAST_N_DAYS:90' ? 'selected' : '' %>>Last 3 Months</option>
+    <option value="LAST_N_DAYS:180" <%= selectedRange === 'LAST_N_DAYS:180' ? 'selected' : '' %>>Last 6 Months</option>
+    <option value="LAST_N_DAYS:365" <%= selectedRange === 'LAST_N_DAYS:365' ? 'selected' : '' %>>Last 12 Months</option>
+    <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
+    <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
+  </select>
+</form>
+
   </header>
   <p style="color: #ffcc00;">📊 Showing records for: <%= selectedRange %></p>
 
@@ -166,7 +170,8 @@
         <thead><tr><th>Type</th><th>Count</th></tr></thead>
         <tbody>
           <tr><td>Leads</td><td class="counter" data-count="<%= leads.length %>">0</td></tr>
-          <tr><td>Accounts</td><td class="counter" data-count="<%= accounts.length %>">0</td></tr>
+         <tr><td>Accounts</td><td class="counter" data-count="<%= uniqueAccounts.length %>">0</td></tr>
+
           <tr><td>Opportunities</td><td class="counter" data-count="<%= opportunities.length %>">0</td></tr>
           <tr><td>Deals</td><td class="counter" data-count="<%= deals.length %>">0</td></tr>
         </tbody>
@@ -300,7 +305,8 @@
     });
 
     // Chart
-    const chartData = JSON.parse('<%- JSON.stringify([leads.length, accounts.length, opportunities.length, deals.length]) %>');
+  const chartData = JSON.parse('<%- JSON.stringify([leads.length, uniqueAccounts.length, opportunities.length, deals.length]) %>');
+
     new Chart(document.getElementById('userChart'), {
       type: 'bar',
       data: {

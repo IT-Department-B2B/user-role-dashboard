@@ -26,6 +26,11 @@ function detectRole(username, ownDeals, ownOpps, teamMembers) {
   return hasTeam ? 'sales_line_manager' : 'sales_executive';
 }
 
+function buildFilter(field, selectedRange) {
+  if (selectedRange === 'ALL_TIME') return '';
+  return `${field} >= ${selectedRange}`;
+}
+
 router.get('/dashboard', isAuthenticated, async (req, res) => {
   try {
     const conn = await loginToSalesforce();
@@ -34,76 +39,67 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const isAdmin = username.toUpperCase() === 'ADMIN';
     const isMark = username.toUpperCase() === 'MARK';
 
-    // Date filters - remove when ALL_TIME
-    const leadFilter = selectedRange === 'ALL_TIME' ? '' : `CreatedDate = ${selectedRange}`;
-    const accountFilter = selectedRange === 'ALL_TIME' ? '' : `CreatedDate = ${selectedRange}`;
-    const oppFilter = selectedRange === 'ALL_TIME' ? '' : `CloseDate = ${selectedRange}`;
-    const dealFilter = selectedRange === 'ALL_TIME' ? '' : `Closed_By__c = ${selectedRange}`;
+    const leadFilter = buildFilter('CreatedDate', selectedRange);
+    const oppFilter = buildFilter('CloseDate', selectedRange);
+    const dealFilter = buildFilter('Closed_By__c', selectedRange);
 
-    // Fetch user's own records
-    const [ownLeads, ownAccounts, ownOpps, ownDeals] = await Promise.all([
+    const [ownLeads, ownOpps, ownDeals] = await Promise.all([
       conn.query(`SELECT Id FROM Lead ${leadFilter ? `WHERE ${leadFilter} AND Custom_Owner__c = '${username}'` : `WHERE Custom_Owner__c = '${username}'`}`),
-      conn.query(`SELECT Id FROM Account ${accountFilter ? `WHERE ${accountFilter} AND Custom_Owner__c = '${username}'` : `WHERE Custom_Owner__c = '${username}'`}`),
-      conn.query(`SELECT Id, Amount, StageName FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND Custom_Owner__c = '${username}'` : `WHERE Custom_Owner__c = '${username}'`}`),
-      conn.query(`SELECT Id, Closed_Price__c, Deal_Status__c FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Custom_Owner__c = '${username}'` : `WHERE Custom_Owner__c = '${username}'`}`)
+      conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND StageName = 'Closed Won' AND Custom_Owner__c = '${username}'` : `WHERE StageName = 'Closed Won' AND Custom_Owner__c = '${username}'`}`),
+      conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${username}'` : `WHERE Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${username}'`}`)
     ]);
 
-    // Calculate Net Sales & Net Purchase
-    const netSales = ownOpps.records
-      .filter(o => o.StageName === 'Closed Won' && o.Amount)
-      .reduce((sum, o) => sum + o.Amount, 0);
+    const oppAccountIds = ownOpps.records.map(o => o.AccountId).filter(Boolean);
+    const dealAccountIds = ownDeals.records.map(d => d.Account__c).filter(Boolean);
+    const uniqueAccountIds = new Set([...oppAccountIds, ...dealAccountIds]);
+    const uniqueAccounts = Array.from(uniqueAccountIds);
 
-    const netPurchase = ownDeals.records
-      .filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
-      .reduce((sum, d) => sum + d.Closed_Price__c, 0);
+    const netSales = ownOpps.records.reduce((sum, o) => sum + (o.Amount || 0), 0);
+    const netPurchase = ownDeals.records.reduce((sum, d) => sum + (d.Closed_Price__c || 0), 0);
 
-    const netData = {};
-    netData[username] = { netSales, netPurchase };
-
+    const netData = { [username]: { netSales, netPurchase } };
     const teamPerformance = {};
     const teamMembers = teamConfig[username] || [];
 
-    // Admin and Mark (get all users data)
-    if (isAdmin || isMark) {
-      const allRecords = await fetchAllRecords(conn, selectedRange);
-      Object.keys(netData).forEach(key => delete netData[key]);
-      Object.keys(teamPerformance).forEach(key => delete teamPerformance[key]);
-      processPerformanceData(allRecords, teamPerformance, netData);
-    } else {
-      // Get team members data
-      for (let member of teamMembers) {
-        const [memberLeads, memberAccounts, memberOpps, memberDeals] = await Promise.all([
-          conn.query(`SELECT Id FROM Lead ${leadFilter ? `WHERE ${leadFilter} AND Custom_Owner__c = '${member}'` : `WHERE Custom_Owner__c = '${member}'`}`),
-          conn.query(`SELECT Id FROM Account ${accountFilter ? `WHERE ${accountFilter} AND Custom_Owner__c = '${member}'` : `WHERE Custom_Owner__c = '${member}'`}`),
-          conn.query(`SELECT Id, Amount, StageName FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND Custom_Owner__c = '${member}'` : `WHERE Custom_Owner__c = '${member}'`}`),
-          conn.query(`SELECT Id, Closed_Price__c, Deal_Status__c FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Custom_Owner__c = '${member}'` : `WHERE Custom_Owner__c = '${member}'`}`)
-        ]);
-
-        teamPerformance[member] = {
-          leads: memberLeads.totalSize,
-          accounts: memberAccounts.totalSize,
-          opportunities: memberOpps.totalSize,
-          deals: memberDeals.totalSize
-        };
-
-        netData[member] = {
-          netSales: memberOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
-            .reduce((sum, o) => sum + o.Amount, 0),
-          netPurchase: memberDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
-            .reduce((sum, d) => sum + d.Closed_Price__c, 0)
-        };
-      }
-    }
-
-    // Detect role & set targets
     const roleKey = detectRole(username, ownDeals.records, ownOpps.records, teamMembers);
     const okr = JSON.parse(JSON.stringify(okrTargets[roleKey] || {}));
     const achievements = {};
     const isTeamLeader = roleKey.includes('line_manager') || roleKey === 'operations_head';
 
-    if (isTeamLeader && (roleKey === 'sales_line_manager' || roleKey === 'purchase_line_manager')) {
+    const teamScope = isAdmin || isMark
+      ? users.map(u => u.username.toUpperCase()).filter(u => u !== username.toUpperCase())
+      : teamMembers;
+
+    for (let member of teamScope) {
+      const [memberLeads, memberOpps, memberDeals] = await Promise.all([
+        conn.query(`SELECT Id FROM Lead ${leadFilter ? `WHERE ${leadFilter} AND Custom_Owner__c = '${member}'` : `WHERE Custom_Owner__c = '${member}'`}`),
+        conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND StageName = 'Closed Won' AND Custom_Owner__c = '${member}'` : `WHERE StageName = 'Closed Won' AND Custom_Owner__c = '${member}'`}`),
+        conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${member}'` : `WHERE Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${member}'`}`)
+      ]);
+
+      const oppAccs = memberOpps.records.map(o => o.AccountId).filter(Boolean);
+      const dealAccs = memberDeals.records.map(d => d.Account__c).filter(Boolean);
+      const uniqueAccs = new Set([...oppAccs, ...dealAccs]);
+
+      teamPerformance[member] = {
+        leads: memberLeads.totalSize,
+        opportunities: memberOpps.totalSize,
+        deals: memberDeals.totalSize,
+        accounts: uniqueAccs.size
+      };
+
+      netData[member] = {
+        netSales: memberOpps.records.reduce((sum, o) => sum + (o.Amount || 0), 0),
+        netPurchase: memberDeals.records.reduce((sum, d) => sum + (d.Closed_Price__c || 0), 0)
+      };
+    }
+
+    if (roleKey === 'sales_line_manager') {
       const teamCount = teamMembers.length;
-      if (okr["Monthly Sales (Team Members)"]) okr["Monthly Sales (Team Members)"].TARGET = teamCount * 100000;
+      if (okr["Monthly Sales (Team Members)"]) okr["Monthly Sales (Team Members)"].TARGET = teamCount * 75000;
+    }
+    if (roleKey === 'purchase_line_manager') {
+      const teamCount = teamMembers.length;
       if (okr["Monthly Purchase (Team Members)"]) okr["Monthly Purchase (Team Members)"].TARGET = teamCount * 100000;
     }
 
@@ -117,10 +113,10 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       achievements["Monthly Sales (Self)"] = netData[username]?.netSales || 0;
       achievements["Monthly Opportunities Created"] = ownOpps.records.length;
       achievements["Monthly Leads Generated"] = ownLeads.records.length;
-      achievements["Monthly Unique Accounts"] = ownAccounts.records.length;
+      achievements["Monthly Unique Accounts"] = uniqueAccounts.length;
     }
 
-    if (roleKey.startsWith('sales') && roleKey !== 'operations_head' && roleKey !== 'floor_manager') {
+    if (roleKey.startsWith('sales')) {
       achievements["Monthly Sales (Self)"] = netData[username]?.netSales || 0;
       if (isTeamLeader && okr["Monthly Sales (Team Members)"]) {
         achievements["Monthly Sales (Team Members)"] = Object.entries(netData)
@@ -129,10 +125,10 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       }
       achievements["Monthly Opportunities Created"] = ownOpps.records.length;
       achievements["Monthly Leads Generated"] = ownLeads.records.length;
-      achievements["Monthly Unique Accounts"] = ownAccounts.records.length;
+      achievements["Monthly Unique Accounts"] = uniqueAccounts.length;
     }
 
-    if (roleKey.startsWith('purchase') && roleKey !== 'operations_head') {
+    if (roleKey.startsWith('purchase')) {
       achievements["Monthly Purchase (Self)"] = netData[username]?.netPurchase || 0;
       if (isTeamLeader && okr["Monthly Purchase (Team Members)"]) {
         achievements["Monthly Purchase (Team Members)"] = Object.entries(netData)
@@ -141,24 +137,20 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       }
       achievements["Monthly Deals Created"] = ownDeals.records.length;
       achievements["Monthly Leads Generated"] = ownLeads.records.length;
-      achievements["Monthly Unique Accounts"] = ownAccounts.records.length;
+      achievements["Monthly Unique Accounts"] = uniqueAccounts.length;
     }
 
-    // DOJ Map
     const dojData = {};
-    users.forEach(u => {
-      dojData[u.username.toUpperCase()] = u.doj;
-    });
+    users.forEach(u => { dojData[u.username.toUpperCase()] = u.doj });
 
-    // Render dashboard
     res.render('dashboard_user', {
       username,
       selectedRange,
       isAdmin,
       leads: ownLeads.records,
-      accounts: ownAccounts.records,
       opportunities: ownOpps.records,
       deals: ownDeals.records,
+      uniqueAccounts,
       teamPerformance,
       netData,
       okr,
@@ -172,52 +164,5 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     res.status(500).send('Dashboard Error: ' + err.message);
   }
 });
-
-async function fetchAllRecords(conn, range) {
-  const leadFilter = range === 'ALL_TIME' ? '' : `CreatedDate = ${range}`;
-  const accountFilter = leadFilter;
-  const oppFilter = range === 'ALL_TIME' ? '' : `CloseDate = ${range}`;
-  const dealFilter = range === 'ALL_TIME' ? '' : `Closed_By__c = ${range}`;
-
-  const [leads, accounts, opps, deals, sales, purchases] = await Promise.all([
-    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Lead ${leadFilter ? `WHERE ${leadFilter}` : ''} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Account ${accountFilter ? `WHERE ${accountFilter}` : ''} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Opportunity ${oppFilter ? `WHERE ${oppFilter}` : ''} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, COUNT(Id) total FROM Deal__c ${dealFilter ? `WHERE ${dealFilter}` : ''} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, SUM(Amount) totalNetSales FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND StageName = 'Closed Won'` : `WHERE StageName = 'Closed Won'`} GROUP BY Custom_Owner__c`),
-    conn.query(`SELECT Custom_Owner__c, SUM(Closed_Price__c) totalNetPurchase FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Deal_Status__c = 'Closed Won'` : `WHERE Deal_Status__c = 'Closed Won'`} GROUP BY Custom_Owner__c`)
-  ]);
-
-  return { leads, accounts, opps, deals, sales, purchases };
-}
-
-function processPerformanceData(data, perfObj, netObj) {
-  const { leads, accounts, opps, deals, sales, purchases } = data;
-
-  for (let row of leads.records) {
-    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
-    perfObj[row.Custom_Owner__c].leads = row.total;
-  }
-  for (let row of accounts.records) {
-    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
-    perfObj[row.Custom_Owner__c].accounts = row.total;
-  }
-  for (let row of opps.records) {
-    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
-    perfObj[row.Custom_Owner__c].opportunities = row.total;
-  }
-  for (let row of deals.records) {
-    if (!perfObj[row.Custom_Owner__c]) perfObj[row.Custom_Owner__c] = {};
-    perfObj[row.Custom_Owner__c].deals = row.total;
-  }
-  for (let row of sales.records) {
-    if (!netObj[row.Custom_Owner__c]) netObj[row.Custom_Owner__c] = {};
-    netObj[row.Custom_Owner__c].netSales = row.totalNetSales || 0;
-  }
-  for (let row of purchases.records) {
-    if (!netObj[row.Custom_Owner__c]) netObj[row.Custom_Owner__c] = {};
-    netObj[row.Custom_Owner__c].netPurchase = row.totalNetPurchase || 0;
-  }
-}
 
 module.exports = router;
