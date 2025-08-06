@@ -12,23 +12,71 @@ function isAuthenticated(req, res, next) {
 
 function detectRole(username, ownDeals, ownOpps, teamMembers) {
   if (username.toUpperCase() === 'MARK') return 'operations_head';
-  if (username.toUpperCase() === 'DAVID') return 'floor_manager';
-
   const hasDeals = ownDeals.length > 0;
   const hasOpps = ownOpps.length > 0;
   const hasTeam = teamMembers.length > 0;
-
   if (hasDeals && !hasOpps && hasTeam) return 'purchase_line_manager';
   if (hasOpps && !hasDeals && hasTeam) return 'sales_line_manager';
   if (hasOpps && !hasDeals && !hasTeam) return 'sales_executive';
   if (hasDeals && !hasOpps && !hasTeam) return 'purchase_executive';
-
   return hasTeam ? 'sales_line_manager' : 'sales_executive';
 }
 
-function buildFilter(field, selectedRange) {
-  if (selectedRange === 'ALL_TIME') return '';
-  return `${field} >= ${selectedRange}`;
+function formatDateTime(date) {
+  return date.toISOString().split('.')[0] + 'Z'; // ISO string without quotes
+}
+
+function getDateRange(selectedRange) {
+  const now = new Date();
+  let fromDate = null;
+  let toDate = new Date();
+
+  switch (selectedRange) {
+    case 'LAST_N_DAYS:7':
+      fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 7);
+      break;
+    case 'LAST_N_DAYS:30':
+      fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 30);
+      break;
+    case 'LAST_N_DAYS:90':
+      fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 90);
+      break;
+    case 'LAST_N_DAYS:180':
+      fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 180);
+      break;
+    case 'LAST_N_DAYS:365':
+      fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 365);
+      break;
+    case 'LAST_3_MONTHS':
+      fromDate = new Date(now);
+      fromDate.setMonth(now.getMonth() - 3);
+      break;
+    case 'LAST_6_MONTHS':
+      fromDate = new Date(now);
+      fromDate.setMonth(now.getMonth() - 6);
+      break;
+    case 'LAST_12_MONTHS':
+      fromDate = new Date(now);
+      fromDate.setFullYear(now.getFullYear() - 1);
+      break;
+    case 'THIS_MONTH':
+      fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'LAST_MONTH':
+      fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      toDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'ALL_TIME':
+    default:
+      return [null, null];
+  }
+
+  return [fromDate, toDate];
 }
 
 router.get('/dashboard', isAuthenticated, async (req, res) => {
@@ -39,23 +87,30 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const isAdmin = username.toUpperCase() === 'ADMIN';
     const isMark = username.toUpperCase() === 'MARK';
 
-    const leadFilter = buildFilter('CreatedDate', selectedRange);
-    const oppFilter = buildFilter('CloseDate', selectedRange);
-    const dealFilter = buildFilter('Closed_By__c', selectedRange);
+    const [fromDate, toDate] = getDateRange(selectedRange);
+    const fromDateStr = fromDate ? formatDateTime(fromDate) : null;
+    const toDateStr = toDate ? formatDateTime(toDate) : null;
+
+    function buildDateFilter(field) {
+      if (!fromDateStr || !toDateStr) return '';
+      return ` AND ${field} >= ${fromDateStr} AND ${field} < ${toDateStr}`;
+    }
+
+    console.log(`📅 Filter applied: ${selectedRange} | FROM: ${fromDateStr || 'ALL'} TO: ${toDateStr || 'ALL'}`);
 
     const [ownLeads, ownOpps, ownDeals] = await Promise.all([
-      conn.query(`SELECT Id FROM Lead ${leadFilter ? `WHERE ${leadFilter} AND Custom_Owner__c = '${username}'` : `WHERE Custom_Owner__c = '${username}'`}`),
-      conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND StageName = 'Closed Won' AND Custom_Owner__c = '${username}'` : `WHERE StageName = 'Closed Won' AND Custom_Owner__c = '${username}'`}`),
-      conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${username}'` : `WHERE Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${username}'`}`)
+      conn.query(`SELECT Id, Name, Company, Email, Phone, CreatedDate FROM Lead WHERE Custom_Owner__c = '${username}'${buildDateFilter('CreatedDate')}`),
+      conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity WHERE Custom_Owner__c = '${username}' AND AccountId != null${buildDateFilter('CreatedDate')}`),
+      conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c, Closed_By__c FROM Deal__c WHERE Custom_Owner__c = '${username}'${buildDateFilter('Closed_By__c')}`)
     ]);
 
     const oppAccountIds = ownOpps.records.map(o => o.AccountId).filter(Boolean);
-    const dealAccountIds = ownDeals.records.map(d => d.Account__c).filter(Boolean);
-    const uniqueAccountIds = new Set([...oppAccountIds, ...dealAccountIds]);
-    const uniqueAccounts = Array.from(uniqueAccountIds);
+    const uniqueAccounts = Array.from(new Set(oppAccountIds));
 
-    const netSales = ownOpps.records.reduce((sum, o) => sum + (o.Amount || 0), 0);
-    const netPurchase = ownDeals.records.reduce((sum, d) => sum + (d.Closed_Price__c || 0), 0);
+    const netSales = ownOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
+      .reduce((sum, o) => sum + o.Amount, 0);
+    const netPurchase = ownDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
+      .reduce((sum, d) => sum + d.Closed_Price__c, 0);
 
     const netData = { [username]: { netSales, netPurchase } };
     const teamPerformance = {};
@@ -65,21 +120,17 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const okr = JSON.parse(JSON.stringify(okrTargets[roleKey] || {}));
     const achievements = {};
     const isTeamLeader = roleKey.includes('line_manager') || roleKey === 'operations_head';
-
-    const teamScope = isAdmin || isMark
-      ? users.map(u => u.username.toUpperCase()).filter(u => u !== username.toUpperCase())
-      : teamMembers;
+    const teamScope = isAdmin || isMark ? users.map(u => u.username.toUpperCase()).filter(u => u !== username.toUpperCase()) : teamMembers;
 
     for (let member of teamScope) {
       const [memberLeads, memberOpps, memberDeals] = await Promise.all([
-        conn.query(`SELECT Id FROM Lead ${leadFilter ? `WHERE ${leadFilter} AND Custom_Owner__c = '${member}'` : `WHERE Custom_Owner__c = '${member}'`}`),
-        conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity ${oppFilter ? `WHERE ${oppFilter} AND StageName = 'Closed Won' AND Custom_Owner__c = '${member}'` : `WHERE StageName = 'Closed Won' AND Custom_Owner__c = '${member}'`}`),
-        conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c ${dealFilter ? `WHERE ${dealFilter} AND Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${member}'` : `WHERE Deal_Status__c = 'Closed Won' AND Custom_Owner__c = '${member}'`}`)
+        conn.query(`SELECT Id, Name, Company, Email, Phone, CreatedDate FROM Lead WHERE Custom_Owner__c = '${member}'${buildDateFilter('CreatedDate')}`),
+        conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity WHERE Custom_Owner__c = '${member}' AND AccountId != null${buildDateFilter('CreatedDate')}`),
+        conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE Custom_Owner__c = '${member}'${buildDateFilter('Closed_By__c')}`)
       ]);
 
       const oppAccs = memberOpps.records.map(o => o.AccountId).filter(Boolean);
-      const dealAccs = memberDeals.records.map(d => d.Account__c).filter(Boolean);
-      const uniqueAccs = new Set([...oppAccs, ...dealAccs]);
+      const uniqueAccs = new Set(oppAccs);
 
       teamPerformance[member] = {
         leads: memberLeads.totalSize,
@@ -89,31 +140,23 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       };
 
       netData[member] = {
-        netSales: memberOpps.records.reduce((sum, o) => sum + (o.Amount || 0), 0),
-        netPurchase: memberDeals.records.reduce((sum, d) => sum + (d.Closed_Price__c || 0), 0)
+        netSales: memberOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
+          .reduce((sum, o) => sum + o.Amount, 0),
+        netPurchase: memberDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
+          .reduce((sum, d) => sum + d.Closed_Price__c, 0)
       };
     }
 
-    if (roleKey === 'sales_line_manager') {
-      const teamCount = teamMembers.length;
-      if (okr["Monthly Sales (Team Members)"]) okr["Monthly Sales (Team Members)"].TARGET = teamCount * 75000;
+    if (roleKey === 'sales_line_manager' && okr["Monthly Sales (Team Members)"]) {
+      okr["Monthly Sales (Team Members)"].TARGET = teamMembers.length * 75000;
     }
-    if (roleKey === 'purchase_line_manager') {
-      const teamCount = teamMembers.length;
-      if (okr["Monthly Purchase (Team Members)"]) okr["Monthly Purchase (Team Members)"].TARGET = teamCount * 100000;
+    if (roleKey === 'purchase_line_manager' && okr["Monthly Purchase (Team Members)"]) {
+      okr["Monthly Purchase (Team Members)"].TARGET = teamMembers.length * 100000;
     }
 
     if (roleKey === 'operations_head') {
       const totalNetSales = Object.values(netData).reduce((sum, d) => sum + (d.netSales || 0), 0);
       achievements["Monthly Sales (Self + Team Members)"] = totalNetSales;
-    }
-
-    if (roleKey === 'floor_manager') {
-      if (okr["Monthly Sales (Self)"]) okr["Monthly Sales (Self)"].TARGET = 300000;
-      achievements["Monthly Sales (Self)"] = netData[username]?.netSales || 0;
-      achievements["Monthly Opportunities Created"] = ownOpps.records.length;
-      achievements["Monthly Leads Generated"] = ownLeads.records.length;
-      achievements["Monthly Unique Accounts"] = uniqueAccounts.length;
     }
 
     if (roleKey.startsWith('sales')) {
@@ -158,7 +201,6 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       roleKey,
       dojData
     });
-
   } catch (err) {
     console.error('❌ Dashboard Error:', err);
     res.status(500).send('Dashboard Error: ' + err.message);
