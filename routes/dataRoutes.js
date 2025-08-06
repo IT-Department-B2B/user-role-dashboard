@@ -23,7 +23,11 @@ function detectRole(username, ownDeals, ownOpps, teamMembers) {
 }
 
 function formatDateTime(date) {
-  return date.toISOString().split('.')[0] + 'Z'; // ISO string without quotes
+  return date.toISOString().split('.')[0] + 'Z'; // returns datetime format for datetime fields
+}
+
+function formatDateOnly(date) {
+  return date.toISOString().split('T')[0];
 }
 
 function getDateRange(selectedRange) {
@@ -32,48 +36,18 @@ function getDateRange(selectedRange) {
   let toDate = new Date();
 
   switch (selectedRange) {
-    case 'LAST_N_DAYS:7':
-      fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 7);
-      break;
-    case 'LAST_N_DAYS:30':
-      fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 30);
-      break;
-    case 'LAST_N_DAYS:90':
-      fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 90);
-      break;
-    case 'LAST_N_DAYS:180':
-      fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 180);
-      break;
-    case 'LAST_N_DAYS:365':
-      fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 365);
-      break;
-    case 'LAST_3_MONTHS':
-      fromDate = new Date(now);
-      fromDate.setMonth(now.getMonth() - 3);
-      break;
-    case 'LAST_6_MONTHS':
-      fromDate = new Date(now);
-      fromDate.setMonth(now.getMonth() - 6);
-      break;
-    case 'LAST_12_MONTHS':
-      fromDate = new Date(now);
-      fromDate.setFullYear(now.getFullYear() - 1);
-      break;
-    case 'THIS_MONTH':
-      fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    case 'LAST_MONTH':
-      fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      toDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
+    case 'LAST_N_DAYS:7': fromDate = new Date(now); fromDate.setDate(now.getDate() - 7); break;
+    case 'LAST_N_DAYS:30': fromDate = new Date(now); fromDate.setDate(now.getDate() - 30); break;
+    case 'LAST_N_DAYS:90': fromDate = new Date(now); fromDate.setDate(now.getDate() - 90); break;
+    case 'LAST_N_DAYS:180': fromDate = new Date(now); fromDate.setDate(now.getDate() - 180); break;
+    case 'LAST_N_DAYS:365': fromDate = new Date(now); fromDate.setDate(now.getDate() - 365); break;
+    case 'LAST_3_MONTHS': fromDate = new Date(now); fromDate.setMonth(now.getMonth() - 3); break;
+    case 'LAST_6_MONTHS': fromDate = new Date(now); fromDate.setMonth(now.getMonth() - 6); break;
+    case 'LAST_12_MONTHS': fromDate = new Date(now); fromDate.setFullYear(now.getFullYear() - 1); break;
+    case 'THIS_MONTH': fromDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
+    case 'LAST_MONTH': fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1); toDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
     case 'ALL_TIME':
-    default:
-      return [null, null];
+    default: return [null, null];
   }
 
   return [fromDate, toDate];
@@ -88,26 +62,33 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const isMark = username.toUpperCase() === 'MARK';
 
     const [fromDate, toDate] = getDateRange(selectedRange);
-    const fromDateStr = fromDate ? formatDateTime(fromDate) : null;
-    const toDateStr = toDate ? formatDateTime(toDate) : null;
+    const fromDateStrDate = fromDate ? formatDateOnly(fromDate) : null;
+    const toDateStrDate = toDate ? formatDateOnly(toDate) : null;
+    const fromDateStrDateTime = fromDate ? formatDateTime(fromDate) : null;
+    const toDateStrDateTime = toDate ? formatDateTime(toDate) : null;
 
     function buildDateFilter(field) {
-      if (!fromDateStr || !toDateStr) return '';
-      return ` AND ${field} >= ${fromDateStr} AND ${field} < ${toDateStr}`;
+      if (!fromDateStrDate || !toDateStrDate) return '';
+      return ` AND ${field} >= ${fromDateStrDate} AND ${field} < ${toDateStrDate}`;
     }
 
-    console.log(`📅 Filter applied: ${selectedRange} | FROM: ${fromDateStr || 'ALL'} TO: ${toDateStr || 'ALL'}`);
+    function buildDateTimeFilter(field) {
+      if (!fromDateStrDateTime || !toDateStrDateTime) return '';
+      return ` AND ${field} >= ${fromDateStrDateTime} AND ${field} < ${toDateStrDateTime}`;
+    }
+
+    console.log(`\uD83D\uDCC5 Filter applied: ${selectedRange} | FROM: ${fromDateStrDate || 'ALL'} TO: ${toDateStrDate || 'ALL'}`);
 
     const [ownLeads, ownOpps, ownDeals] = await Promise.all([
-      conn.query(`SELECT Id, Name, Company, Email, Phone, CreatedDate FROM Lead WHERE Custom_Owner__c = '${username}'${buildDateFilter('CreatedDate')}`),
-      conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity WHERE Custom_Owner__c = '${username}' AND AccountId != null${buildDateFilter('CreatedDate')}`),
-      conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c, Closed_By__c FROM Deal__c WHERE Custom_Owner__c = '${username}'${buildDateFilter('Closed_By__c')}`)
+      conn.query(`SELECT Id, Name, Company, Email, Phone, CreatedDate FROM Lead WHERE Custom_Owner__c = '${username}'${buildDateTimeFilter('CreatedDate')}`),
+      conn.query(`SELECT Id, AccountId, Amount, StageName, CloseDate FROM Opportunity WHERE Custom_Owner__c = '${username}' AND AccountId != null AND StageName = 'Closed Won'${buildDateFilter('CloseDate')}`),
+      conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c, Closed_By__c FROM Deal__c WHERE Custom_Owner__c = '${username}'${buildDateTimeFilter('Closed_By__c')}`)
     ]);
 
     const oppAccountIds = ownOpps.records.map(o => o.AccountId).filter(Boolean);
     const uniqueAccounts = Array.from(new Set(oppAccountIds));
 
-    const netSales = ownOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
+    const netSales = ownOpps.records.filter(o => o.Amount)
       .reduce((sum, o) => sum + o.Amount, 0);
     const netPurchase = ownDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
       .reduce((sum, d) => sum + d.Closed_Price__c, 0);
@@ -124,9 +105,9 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
 
     for (let member of teamScope) {
       const [memberLeads, memberOpps, memberDeals] = await Promise.all([
-        conn.query(`SELECT Id, Name, Company, Email, Phone, CreatedDate FROM Lead WHERE Custom_Owner__c = '${member}'${buildDateFilter('CreatedDate')}`),
-        conn.query(`SELECT Id, AccountId, Amount, StageName FROM Opportunity WHERE Custom_Owner__c = '${member}' AND AccountId != null${buildDateFilter('CreatedDate')}`),
-        conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE Custom_Owner__c = '${member}'${buildDateFilter('Closed_By__c')}`)
+        conn.query(`SELECT Id, Name, Company, Email, Phone, CreatedDate FROM Lead WHERE Custom_Owner__c = '${member}'${buildDateTimeFilter('CreatedDate')}`),
+        conn.query(`SELECT Id, AccountId, Amount, StageName, CloseDate FROM Opportunity WHERE Custom_Owner__c = '${member}' AND AccountId != null AND StageName = 'Closed Won'${buildDateFilter('CloseDate')}`),
+        conn.query(`SELECT Id, Account__c, Closed_Price__c, Deal_Status__c FROM Deal__c WHERE Custom_Owner__c = '${member}'${buildDateTimeFilter('Closed_By__c')}`)
       ]);
 
       const oppAccs = memberOpps.records.map(o => o.AccountId).filter(Boolean);
@@ -140,8 +121,7 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       };
 
       netData[member] = {
-        netSales: memberOpps.records.filter(o => o.StageName === 'Closed Won' && o.Amount)
-          .reduce((sum, o) => sum + o.Amount, 0),
+        netSales: memberOpps.records.filter(o => o.Amount).reduce((sum, o) => sum + o.Amount, 0),
         netPurchase: memberDeals.records.filter(d => d.Deal_Status__c === 'Closed Won' && d.Closed_Price__c)
           .reduce((sum, d) => sum + d.Closed_Price__c, 0)
       };
@@ -202,7 +182,7 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       dojData
     });
   } catch (err) {
-    console.error('❌ Dashboard Error:', err);
+    console.error('\u274C Dashboard Error:', err);
     res.status(500).send('Dashboard Error: ' + err.message);
   }
 });
