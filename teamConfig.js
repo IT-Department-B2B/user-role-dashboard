@@ -1,14 +1,14 @@
 const teamMapping = {
-  'FAIZAL': ['Ahmad', 'Michael', 'John', 'Ray', 'Archie', 'Ricky'],
-  'VICTOR': ['Mohsin', 'Peter'],
-  'ROBIN': ['Adam', 'Sam', 'Marcel', 'Fredie'],
-  'MARCUS': ['Keev', 'Rody', 'Abraham', 'Ryan', 'Atin'],
-  'DAISY': ['Tia', 'Zella'],
-  'AVA': ['Gloria', 'Jennie', 'Sonya', 'Lily', 'Linza'],
-  'BRIAN': ['Jason', 'Neeraj', 'Allen'],
-  'TONY': ['Rick C', 'Leo M', 'Richard M'],
-  'LUKE': ['Omar', 'Alex', 'James L'],
-   'DAVID': ['DAVID']
+  'FAIZAL': ['AHMAD', 'MICHAEL', 'JOHN', 'RAY', 'ARCHIE', 'RICKY'],
+  'VICTOR': ['MOHSIN', 'PETER'],
+  'ROBIN': ['ADAM', 'SAM', 'MARCEL', 'FREDDIE'],
+  'MARCUS': ['KEEV', 'RODY', 'ABRAHAM', 'RYAN', 'ATIN'],
+  'DAISY': ['TIA', 'ZELLA'],
+  'AVA': ['GLORIA', 'JENNIE', 'SONYA', 'LILY', 'LINZA'],
+  'BRIAN': ['JASON_F', 'NEERAJ', 'ALLEN'],   // ✅ Fixed here
+  'TONY': ['RICK C', 'LEO M', 'RICHARD M'],
+  'LUKE': ['OMAR', 'ALEX', 'JAMES'],
+  'DAVID': ['DAVID']
 };
 
 // Add MARK with access to all users across all teams

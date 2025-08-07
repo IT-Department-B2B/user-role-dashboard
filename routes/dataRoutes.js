@@ -11,7 +11,9 @@ function isAuthenticated(req, res, next) {
 }
 
 function detectRole(username, ownDeals, ownOpps, teamMembers) {
-  if (username.toUpperCase() === 'MARK') return 'operations_head';
+  const uname = username.toUpperCase();
+  if (uname === 'MARK') return 'operations_head';
+  if (uname === 'JASON_F') return 'purchase_executive'; // ✅ Jason_F is not a team leader
   const hasDeals = ownDeals.length > 0;
   const hasOpps = ownOpps.length > 0;
   const hasTeam = teamMembers.length > 0;
@@ -93,7 +95,6 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       conn.query(`SELECT Id, Closed_Price__c FROM Deal__c WHERE Custom_Owner__c = '${username}' AND Deal_Status__c = 'Closed Won'${buildDateTimeFilter('Closed_By__c')}`)
     ]);
 
-    // ✅ Unique Accounts: from Opportunity.AccountId + Deal__c.Account__c
     const oppAccountIds = ownOppsCreated.records.map(o => o.AccountId).filter(Boolean);
     const dealAccountIds = ownDealsCreated.records.map(d => d.Account__c).filter(Boolean);
     const allAccountIds = [...oppAccountIds, ...dealAccountIds];
@@ -110,7 +111,9 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const okr = JSON.parse(JSON.stringify(okrTargets[roleKey] || {}));
     const achievements = {};
     const isTeamLeader = roleKey.includes('line_manager') || roleKey === 'operations_head';
-    const teamScope = isAdmin || isMark ? users.map(u => u.username.toUpperCase()).filter(u => u !== username.toUpperCase()) : teamMembers;
+    const teamScope = (isAdmin || isMark)
+      ? users.map(u => u.username.toUpperCase()).filter(u => u !== username.toUpperCase())
+      : teamMembers;
 
     for (let member of teamScope) {
       const [
@@ -127,7 +130,6 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
         conn.query(`SELECT Id, Closed_Price__c FROM Deal__c WHERE Custom_Owner__c = '${member}' AND Deal_Status__c = 'Closed Won'${buildDateTimeFilter('Closed_By__c')}`)
       ]);
 
-      // ✅ Combine Opportunity.AccountId and Deal.Account__c
       const oppAccs = memberOppsCreated.records.map(o => o.AccountId).filter(Boolean);
       const dealAccs = memberDealsCreated.records.map(d => d.Account__c).filter(Boolean);
       const allAccs = [...oppAccs, ...dealAccs];
@@ -208,3 +210,4 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
 });
 
 module.exports = router;
+
