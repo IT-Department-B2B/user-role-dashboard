@@ -6,7 +6,7 @@ const teamMapping = {
   'DAISY': ['TIA', 'ZELLA'],
   'AVA': ['GLORIA', 'JENNIE', 'SONYA', 'LILY', 'LINZA'],
   'BRIAN': ['JASON_F', 'NEERAJ', 'ALLEN'],   // ✅ Fixed here
-  'TONY': ['RICK C', 'LEO M', 'RICHARD M'],
+  'TONY': ['RICK', 'LEO', 'RICHARD'],
   'LUKE': ['OMAR', 'ALEX', 'JAMES'],
   'DAVID': ['DAVID']
 };
