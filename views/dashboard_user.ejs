@@ -1,4 +1,4 @@
-   <!DOCTYPE html> 
+<!DOCTYPE html> 
 <html>
 <head>
   <title>User Dashboard</title>
@@ -30,22 +30,20 @@
     .logo-container img { max-width: 220px; transition: transform 0.3s ease; }
     .logo-container img:hover { transform: scale(1.05); }
 
-    /* Increased size for Growth Plan image */
     .growth-plan-image img {
-      max-width: 800px;   /* Increased from 600px */
+      max-width: 800px;
       height: auto;
       transition: transform 0.4s ease, box-shadow 0.4s ease;
       justify-self: end;
     }
     .growth-plan-image img:hover {
-      transform: scale(1.12); /* Slightly larger hover effect */
+      transform: scale(1.12);
       box-shadow: 0 6px 20px rgba(0,0,0,0.2);
     }
 
-    /* Modified center-heading to shift left */
     .center-heading {
       position: relative;
-      left: -30px;        /* Shift entire block left */
+      left: -30px;
     }
     .center-heading h1,
     .center-heading h2 {
@@ -129,8 +127,8 @@
       <h2>Performance Management System</h2>
     </div>
     <div class="growth-plan-image">
-      <a href="https://ibb.co/svkt8tT5" target="_blank">
-        <img src="https://i.ibb.co/VWr3f3FH/Screenshot-2025-07-29-235227.png" alt="Growth Plan">
+      <a href="https://ibb.co/gFFMt18W" target="_blank">
+        <img src="https://i.ibb.co/KzzjVZgs/41bb3da4-3272-4088-975c-64346b90c16c.jpg" alt="Growth Plan" border="0">
       </a>
     </div>
   </div>
@@ -147,18 +145,17 @@
       <% } %>
     </h2>
     <form method="GET" action="/dashboard" class="filter-box">
-  <select name="range" onchange="this.form.submit()">
-    <option value="ALL_TIME" <%= selectedRange === 'ALL_TIME' ? 'selected' : '' %>>All Time</option>
-    <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
-    <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
-    <option value="LAST_N_DAYS:90" <%= selectedRange === 'LAST_N_DAYS:90' ? 'selected' : '' %>>Last 3 Months</option>
-    <option value="LAST_N_DAYS:180" <%= selectedRange === 'LAST_N_DAYS:180' ? 'selected' : '' %>>Last 6 Months</option>
-    <option value="LAST_N_DAYS:365" <%= selectedRange === 'LAST_N_DAYS:365' ? 'selected' : '' %>>Last 12 Months</option>
-    <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
-    <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
-  </select>
-</form>
-
+      <select name="range" onchange="this.form.submit()">
+        <option value="ALL_TIME" <%= selectedRange === 'ALL_TIME' ? 'selected' : '' %>>All Time</option>
+        <option value="LAST_N_DAYS:7" <%= selectedRange === 'LAST_N_DAYS:7' ? 'selected' : '' %>>Last 7 Days</option>
+        <option value="LAST_N_DAYS:30" <%= selectedRange === 'LAST_N_DAYS:30' ? 'selected' : '' %>>Last 30 Days</option>
+        <option value="LAST_N_DAYS:90" <%= selectedRange === 'LAST_N_DAYS:90' ? 'selected' : '' %>>Last 3 Months</option>
+        <option value="LAST_N_DAYS:180" <%= selectedRange === 'LAST_N_DAYS:180' ? 'selected' : '' %>>Last 6 Months</option>
+        <option value="LAST_N_DAYS:365" <%= selectedRange === 'LAST_N_DAYS:365' ? 'selected' : '' %>>Last 12 Months</option>
+        <option value="THIS_MONTH" <%= selectedRange === 'THIS_MONTH' ? 'selected' : '' %>>This Month</option>
+        <option value="LAST_MONTH" <%= selectedRange === 'LAST_MONTH' ? 'selected' : '' %>>Last Month</option>
+      </select>
+    </form>
   </header>
   <p style="color: #ffcc00;">📊 Showing records for: <%= selectedRange %></p>
 
@@ -170,8 +167,7 @@
         <thead><tr><th>Type</th><th>Count</th></tr></thead>
         <tbody>
           <tr><td>Leads</td><td class="counter" data-count="<%= leads.length %>">0</td></tr>
-         <tr><td>Accounts</td><td class="counter" data-count="<%= uniqueAccounts.length %>">0</td></tr>
-
+          <tr><td>Accounts</td><td class="counter" data-count="<%= uniqueAccounts.length %>">0</td></tr>
           <tr><td>Opportunities</td><td class="counter" data-count="<%= opportunities.length %>">0</td></tr>
           <tr><td>Deals</td><td class="counter" data-count="<%= deals.length %>">0</td></tr>
         </tbody>
@@ -197,7 +193,6 @@
     <% } %>
   </div>
 
-  <!-- Team Performance -->
   <% if (Object.keys(teamPerformance).length > 0) { %>
     <div class="card">
       <div class="title"><i class="fa-solid fa-users"></i> Team Performance</div>
@@ -233,7 +228,6 @@
     </div>
   <% } %>
 
-  <!-- OKR -->
   <% if (okr && Object.keys(okr).length > 0) { %>
     <div class="card">
       <div class="title"><i class="fa-solid fa-bullseye"></i> 🌟 OKR Performance Summary</div>
@@ -267,14 +261,12 @@
 
   <canvas id="userChart" width="1000" height="400" style="margin-top:20px;"></canvas>
 
-  <!-- Export Buttons -->
   <div class="export-buttons">
     <button onclick="exportToExcel()">📅 Export to Excel</button>
     <button onclick="exportToPDF()">📄 Export to PDF</button>
   </div>
 
   <script>
-    // Counter Animation
     function addShapeAnimation(counter) {
       const shapes = ['fa-star', 'fa-draw-polygon'];
       const shapeCount = Math.floor(Math.random() * 10) + 20;
@@ -304,8 +296,7 @@
       updateCount();
     });
 
-    // Chart
-  const chartData = JSON.parse('<%- JSON.stringify([leads.length, uniqueAccounts.length, opportunities.length, deals.length]) %>');
+    const chartData = JSON.parse('<%- JSON.stringify([leads.length, uniqueAccounts.length, opportunities.length, deals.length]) %>');
 
     new Chart(document.getElementById('userChart'), {
       type: 'bar',
