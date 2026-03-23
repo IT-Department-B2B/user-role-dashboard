@@ -3,7 +3,7 @@ const jsforce = require('jsforce');
 
 const username = 'pramod@retrotech.in';
 const password = 'Admin@Retrotech#2031';
-const securityToken = 'XzmG5pwHq3YJGqORIEKD0UAp9'; // or latest
+const securityToken = 'SjOXnRdNNVhN1w43tUV2rcaNE'; // or latest
 const loginUrl = 'https://login.salesforce.com';
 
 const conn = new jsforce.Connection({ loginUrl });
